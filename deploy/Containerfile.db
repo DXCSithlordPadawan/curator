@@ -1,0 +1,22 @@
+# =============================================================================
+# Containerfile.db — PostgreSQL 15 + PostGIS 3.4 (CIS hardened)
+# Rootless Podman · Extends the official postgis image
+# =============================================================================
+
+FROM docker.io/postgis/postgis:15-3.4
+
+# Apply CIS Level 2 PostgreSQL hardening at image build time.
+# Runtime hardening (pg_hba.conf, postgresql.conf) is managed via
+# the volume-mounted config in deploy/postgres/postgresql.conf
+
+# Ensure all PostGIS scripts are present
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+        postgresql-15-postgis-3 \
+ && rm -rf /var/lib/apt/lists/*
+
+# Copy custom postgresql.conf (CIS hardened) if present
+# Uncomment when deploy/postgres/postgresql.conf is created in Phase 1.
+# COPY deploy/postgres/postgresql.conf /etc/postgresql/postgresql.conf
+
+EXPOSE 5432

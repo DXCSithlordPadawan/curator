@@ -1,0 +1,81 @@
+# =============================================================================
+# Sentinel Curator — Podman Compose
+# Rootless Podman · Isolated internal bridge network · No external DB egress
+#
+# Services:
+#   db   — PostgreSQL 15 + PostGIS 3.4
+#   app  — Sentinel Curator FastAPI application
+#
+# Usage:
+#   podman-compose -f deploy/podman-compose.yml up -d
+# =============================================================================
+
+version: "3.9"
+
+networks:
+  curator_internal:
+    driver: bridge
+    internal: true        # No external egress for the DB container
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL 15 + PostGIS 3.4
+  # ---------------------------------------------------------------------------
+  db:
+    image: docker.io/postgis/postgis:15-3.4
+    container_name: sentinel_db
+    restart: unless-stopped
+    networks:
+      - curator_internal
+    environment:
+      POSTGRES_DB:       ${SC_DB_NAME:-sentinel_curator}
+      POSTGRES_USER:     ${SC_DB_USER:-curator_app}
+      POSTGRES_PASSWORD: ${SC_DB_PASSWORD}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${SC_DB_USER:-curator_app} -d ${SC_DB_NAME:-sentinel_curator}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # No ports exposed externally — app reaches DB via internal network only.
+
+  # ---------------------------------------------------------------------------
+  # Sentinel Curator FastAPI Application
+  # ---------------------------------------------------------------------------
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Containerfile.app
+    container_name: sentinel_app
+    restart: unless-stopped
+    networks:
+      - curator_internal
+    ports:
+      - "127.0.0.1:${SC_APP_PORT:-8000}:8000"   # Bind to loopback only
+    environment:
+      SC_DB_HOST:        db
+      SC_DB_PORT:        5432
+      SC_DB_NAME:        ${SC_DB_NAME:-sentinel_curator}
+      SC_DB_USER:        ${SC_DB_USER:-curator_app}
+      SC_DB_PASSWORD:    ${SC_DB_PASSWORD}
+      SC_LLM_PROVIDER:   ${SC_LLM_PROVIDER:-openai}
+      SC_LLM_MODEL:      ${SC_LLM_MODEL:-gpt-4-turbo}
+      SC_OPENAI_API_KEY: ${SC_OPENAI_API_KEY:-}
+      SC_APP_HOST:       0.0.0.0
+      SC_APP_PORT:       8000
+      SC_APP_ENV:        ${SC_APP_ENV:-production}
+      SC_SECRET_KEY:     ${SC_SECRET_KEY}
+      SC_LOG_LEVEL:      ${SC_LOG_LEVEL:-INFO}
+      SC_LOG_FORMAT:     json
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db_data:
+    driver: local
