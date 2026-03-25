@@ -1,6 +1,6 @@
 # Sentinel Curator -- Architecture Document
 
-**Version:** 0.1.2
+**Version:** 0.1.3
 **Date:** 2026-03-25
 **Status:** Draft
 **Classification:** UNCLASSIFIED // DEVELOPMENT
@@ -106,6 +106,7 @@ erDiagram
         uuid class_id FK
         char(2) operator_country FK
         char(2) owner_country FK
+        uuid parent_platform_id FK "optional - hosting platform; NULL if independent; cannot equal own id"
         timestamptz created_at
         timestamptz updated_at
     }
@@ -154,6 +155,7 @@ erDiagram
     COUNTRY                ||--o{ WEAPON_MOUNT         : "operates (operator_country)"
     COUNTRY                ||--o{ WEAPON_MOUNT         : "owns (owner_country)"
     PLATFORM_CLASS         ||--o{ INDIVIDUAL_PLATFORM : "has instances"
+    INDIVIDUAL_PLATFORM    |o--o{ INDIVIDUAL_PLATFORM  : "embarks (parent_platform_id)"
     INDIVIDUAL_PLATFORM    ||--o{ PLATFORM_MOUNT      : "has mounts"
     INDIVIDUAL_PLATFORM    ||--o{ GEOLOCATION_LOG     : "has telemetry"
     INDIVIDUAL_PLATFORM    |o--o{ PLATFORM_RWR        : "carries RWR via"
@@ -171,6 +173,7 @@ erDiagram
 | COUNTRY to PLATFORM_MOUNT (operator_country / owner_country) | One to zero-or-many | Propagated from platform-level nationality |
 | COUNTRY to WEAPON_MOUNT (operator_country / owner_country) | One to zero-or-many | Propagated from platform-level nationality |
 | PLATFORM_CLASS to INDIVIDUAL_PLATFORM | One to zero-or-many | A class may have no physical hulls yet |
+| INDIVIDUAL_PLATFORM to INDIVIDUAL_PLATFORM (parent_platform_id) | Zero-or-one to zero-or-many | A platform may be embarked on at most one host platform (e.g. aircraft on a carrier); a host may carry zero or many embarked platforms; a platform cannot be its own parent |
 | INDIVIDUAL_PLATFORM to PLATFORM_MOUNT | One to zero-or-many | A platform may have no tracked mounts |
 | PLATFORM_MOUNT to WEAPON_MOUNT | One to zero-or-many | A mount may be empty |
 | INDIVIDUAL_PLATFORM to RWR_SYSTEM | Many to many via PLATFORM_RWR | A platform carries zero, one, or many RWR systems; a model may be on many platforms |

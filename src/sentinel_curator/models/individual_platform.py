@@ -11,12 +11,15 @@ Relationships:
   - carries zero, one, or many RWR_SYSTEM (via PLATFORM_RWR association table)
   - operator_country FK → COUNTRY
   - owner_country    FK → COUNTRY
+  - optionally embarked on one parent INDIVIDUAL_PLATFORM (parent_platform_id)
+  - may host zero, one, or many embarked INDIVIDUAL_PLATFORM (embarked_platforms)
+  - a platform cannot be its own parent (DB enforces chk_no_self_parent)
 """
 
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import CheckConstraint, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -34,6 +37,12 @@ class IndividualPlatform(Base):
     """A specific physical instance of a platform class."""
 
     __tablename__ = "individual_platform"
+    __table_args__ = (
+        CheckConstraint(
+            "parent_platform_id <> id",
+            name="chk_no_self_parent",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -69,6 +78,18 @@ class IndividualPlatform(Base):
         ForeignKey("country.alpha2", ondelete="RESTRICT"),
         nullable=False,
         comment="ISO 3166-1 alpha-2 FK — nation that owns this platform",
+    )
+    parent_platform_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("individual_platform.id", ondelete="SET NULL"),
+        nullable=True,
+        default=None,
+        comment=(
+            "Optional FK to the hosting INDIVIDUAL_PLATFORM "
+            "(e.g. aircraft carrier for an embarked aircraft). "
+            "NULL when this platform operates independently. "
+            "Cannot equal this platform's own id (chk_no_self_parent)."
+        ),
     )
 
     # ------------------------------------------------------------------
@@ -110,5 +131,23 @@ class IndividualPlatform(Base):
         "RwrSystem",
         secondary="platform_rwr",
         back_populates="platforms",
+        lazy="select",
+    )
+
+    # Self-referential: the parent platform that hosts/carries this platform
+    # (e.g. the aircraft carrier for an embarked aircraft). NULL if independent.
+    parent_platform: Mapped[Optional["IndividualPlatform"]] = relationship(
+        "IndividualPlatform",
+        foreign_keys=[parent_platform_id],
+        back_populates="embarked_platforms",
+        remote_side=[id],
+        lazy="select",
+    )
+
+    # Self-referential: platforms embarked on / hosted by this platform.
+    embarked_platforms: Mapped[list["IndividualPlatform"]] = relationship(
+        "IndividualPlatform",
+        foreign_keys=[parent_platform_id],
+        back_populates="parent_platform",
         lazy="select",
     )
