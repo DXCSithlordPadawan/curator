@@ -14,6 +14,7 @@ Relationships:
   - optionally embarked on one parent INDIVIDUAL_PLATFORM (parent_platform_id)
   - may host zero, one, or many embarked INDIVIDUAL_PLATFORM (embarked_platforms)
   - a platform cannot be its own parent (DB enforces chk_no_self_parent)
+  - optionally assigned to one ORGANISATION (organisation_id)
 """
 
 import uuid
@@ -28,6 +29,7 @@ from sentinel_curator.models.base import Base
 if TYPE_CHECKING:
     from sentinel_curator.models.country import Country
     from sentinel_curator.models.geolocation_log import GeolocationLog
+    from sentinel_curator.models.organisation import Organisation
     from sentinel_curator.models.platform_class import PlatformClass
     from sentinel_curator.models.platform_mount import PlatformMount
     from sentinel_curator.models.rwr_system import RwrSystem
@@ -91,6 +93,16 @@ class IndividualPlatform(Base):
             "Cannot equal this platform's own id (chk_no_self_parent)."
         ),
     )
+    organisation_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("organisation.id", ondelete="SET NULL"),
+        nullable=True,
+        default=None,
+        comment=(
+            "Optional FK to the ORGANISATION this platform is assigned to "
+            "(e.g. a carrier assigned to 7th Fleet). NULL when not assigned."
+        ),
+    )
 
     # ------------------------------------------------------------------
     # Relationships
@@ -149,5 +161,12 @@ class IndividualPlatform(Base):
         "IndividualPlatform",
         foreign_keys=[parent_platform_id],
         back_populates="parent_platform",
+        lazy="select",
+    )
+
+    # Military organisation this platform is assigned to (e.g. 7th Fleet).
+    organisation: Mapped[Optional["Organisation"]] = relationship(
+        "Organisation",
+        back_populates="platforms",
         lazy="select",
     )
