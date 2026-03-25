@@ -3,6 +3,9 @@ ORM model: WEAPON_MOUNT
 
 Specific weapon fitted to a platform mount (e.g. 20mm Cannon on Pylon-3).
 Classification tier: CONFIDENTIAL
+
+  - operator_country FK → COUNTRY
+  - owner_country    FK → COUNTRY
 """
 
 import uuid
@@ -15,6 +18,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sentinel_curator.models.base import Base
 
 if TYPE_CHECKING:
+    from sentinel_curator.models.country import Country
     from sentinel_curator.models.platform_mount import PlatformMount
 
 
@@ -38,12 +42,37 @@ class WeaponMount(Base):
         ForeignKey("platform_mount.id", ondelete="CASCADE"),
         nullable=False,
     )
-    operator_country: Mapped[str] = mapped_column(String(100), nullable=False)
-    owner_country: Mapped[str] = mapped_column(String(100), nullable=False)
+    operator_country: Mapped[str] = mapped_column(
+        String(2),
+        ForeignKey("country.alpha2", ondelete="RESTRICT"),
+        nullable=False,
+        comment="ISO 3166-1 alpha-2 FK — nation operating this weapon",
+    )
+    owner_country: Mapped[str] = mapped_column(
+        String(2),
+        ForeignKey("country.alpha2", ondelete="RESTRICT"),
+        nullable=False,
+        comment="ISO 3166-1 alpha-2 FK — nation owning this weapon",
+    )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # ------------------------------------------------------------------
     # Relationships
+    # ------------------------------------------------------------------
+
     mount: Mapped["PlatformMount"] = relationship(
         "PlatformMount",
         back_populates="weapons",
+    )
+
+    operator: Mapped["Country"] = relationship(
+        "Country",
+        foreign_keys=[operator_country],
+        lazy="select",
+    )
+
+    owner: Mapped["Country"] = relationship(
+        "Country",
+        foreign_keys=[owner_country],
+        lazy="select",
     )

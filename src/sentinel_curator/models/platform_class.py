@@ -8,13 +8,14 @@ Classification tier: UNCLASSIFIED
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import String, Text
+from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from sentinel_curator.models.base import Base
 
 if TYPE_CHECKING:
+    from sentinel_curator.models.country import Country
     from sentinel_curator.models.individual_platform import IndividualPlatform
 
 
@@ -36,9 +37,10 @@ class PlatformClass(Base):
         comment="Common design designation, e.g. 'Nimitz-class'",
     )
     manufacturer_country: Mapped[str] = mapped_column(
-        String(100),
+        String(2),
+        ForeignKey("country.alpha2", ondelete="RESTRICT"),
         nullable=False,
-        comment="ISO 3166-1 alpha-2 country code of manufacturer",
+        comment="ISO 3166-1 alpha-2 FK — country that manufactured this class",
     )
     description: Mapped[str | None] = mapped_column(
         Text,
@@ -46,7 +48,16 @@ class PlatformClass(Base):
         comment="Unclassified public description",
     )
 
+    # ------------------------------------------------------------------
     # Relationships
+    # ------------------------------------------------------------------
+
+    manufacturer: Mapped["Country"] = relationship(
+        "Country",
+        foreign_keys=[manufacturer_country],
+        lazy="select",
+    )
+
     platforms: Mapped[list["IndividualPlatform"]] = relationship(
         "IndividualPlatform",
         back_populates="platform_class",

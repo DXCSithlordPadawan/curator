@@ -9,6 +9,8 @@ Relationships:
   - has zero, one, or many PLATFORM_MOUNT (weapon hardpoints)
   - has zero, one, or many GEOLOCATION_LOG (telemetry)
   - carries zero, one, or many RWR_SYSTEM (via PLATFORM_RWR association table)
+  - operator_country FK → COUNTRY
+  - owner_country    FK → COUNTRY
 """
 
 import uuid
@@ -21,6 +23,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sentinel_curator.models.base import Base
 
 if TYPE_CHECKING:
+    from sentinel_curator.models.country import Country
     from sentinel_curator.models.geolocation_log import GeolocationLog
     from sentinel_curator.models.platform_class import PlatformClass
     from sentinel_curator.models.platform_mount import PlatformMount
@@ -56,14 +59,16 @@ class IndividualPlatform(Base):
         comment="FK to parent platform class",
     )
     operator_country: Mapped[str] = mapped_column(
-        String(100),
+        String(2),
+        ForeignKey("country.alpha2", ondelete="RESTRICT"),
         nullable=False,
-        comment="ISO 3166-1 alpha-2 country code of operating nation",
+        comment="ISO 3166-1 alpha-2 FK — nation currently operating this platform",
     )
     owner_country: Mapped[str] = mapped_column(
-        String(100),
+        String(2),
+        ForeignKey("country.alpha2", ondelete="RESTRICT"),
         nullable=False,
-        comment="ISO 3166-1 alpha-2 country code of owning nation",
+        comment="ISO 3166-1 alpha-2 FK — nation that owns this platform",
     )
 
     # ------------------------------------------------------------------
@@ -73,6 +78,18 @@ class IndividualPlatform(Base):
     platform_class: Mapped["PlatformClass"] = relationship(
         "PlatformClass",
         back_populates="platforms",
+    )
+
+    operator: Mapped["Country"] = relationship(
+        "Country",
+        foreign_keys=[operator_country],
+        lazy="select",
+    )
+
+    owner: Mapped["Country"] = relationship(
+        "Country",
+        foreign_keys=[owner_country],
+        lazy="select",
     )
 
     mounts: Mapped[list["PlatformMount"]] = relationship(
