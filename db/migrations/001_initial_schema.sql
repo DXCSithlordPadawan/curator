@@ -15,14 +15,34 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "postgis";
 
 -- ---------------------------------------------------------------------------
+-- COUNTRY
+-- Classification: UNCLASSIFIED
+-- ISO 3166-1 alpha-2 country reference table.
+-- Single source of truth for all operator_country, owner_country, and
+-- manufacturer_country foreign keys throughout the schema.
+-- Reference: https://www.iso.org/iso-3166-country-codes.html
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS country (
+    alpha2 CHAR(2)       PRIMARY KEY,
+    name   VARCHAR(255)  NOT NULL
+);
+
+COMMENT ON TABLE  country IS
+    'UNCLASSIFIED: ISO 3166-1 alpha-2 country reference table.';
+COMMENT ON COLUMN country.alpha2 IS
+    'ISO 3166-1 alpha-2 two-character country code, e.g. ''US'', ''GB'', ''FR''.';
+COMMENT ON COLUMN country.name IS
+    'ISO 3166-1 official English short name.';
+
+-- ---------------------------------------------------------------------------
 -- PLATFORM_CLASS
 -- Classification: UNCLASSIFIED
 -- Master template for a ship/vehicle design class.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS platform_class (
-    id                   UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id                   UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
     class_name           VARCHAR(255) NOT NULL UNIQUE,
-    manufacturer_country VARCHAR(100) NOT NULL,
+    manufacturer_country CHAR(2)      NOT NULL REFERENCES country(alpha2) ON DELETE RESTRICT,
     description          TEXT,
     created_at           TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at           TIMESTAMPTZ  NOT NULL DEFAULT NOW()
@@ -33,7 +53,7 @@ COMMENT ON TABLE  platform_class IS
 COMMENT ON COLUMN platform_class.id IS
     'UUID v4 primary key -- prevents enumeration.';
 COMMENT ON COLUMN platform_class.manufacturer_country IS
-    'ISO 3166-1 alpha-2 country code.';
+    'ISO 3166-1 alpha-2 FK -- country that manufactured this class (REFERENCES country.alpha2).';
 
 -- ---------------------------------------------------------------------------
 -- INDIVIDUAL_PLATFORM
@@ -45,8 +65,8 @@ CREATE TABLE IF NOT EXISTS individual_platform (
     hull_serial_id   VARCHAR(100) NOT NULL UNIQUE,
     name             VARCHAR(255) NOT NULL,
     class_id         UUID         NOT NULL REFERENCES platform_class(id) ON DELETE RESTRICT,
-    operator_country VARCHAR(100) NOT NULL,
-    owner_country    VARCHAR(100) NOT NULL,
+    operator_country CHAR(2)      NOT NULL REFERENCES country(alpha2) ON DELETE RESTRICT,
+    owner_country    CHAR(2)      NOT NULL REFERENCES country(alpha2) ON DELETE RESTRICT,
     created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
@@ -59,6 +79,10 @@ CREATE INDEX IF NOT EXISTS ix_individual_platform_operator
 
 COMMENT ON TABLE individual_platform IS
     'RESTRICTED: Specific physical platform instance.';
+COMMENT ON COLUMN individual_platform.operator_country IS
+    'ISO 3166-1 alpha-2 FK -- nation currently operating this platform (REFERENCES country.alpha2).';
+COMMENT ON COLUMN individual_platform.owner_country IS
+    'ISO 3166-1 alpha-2 FK -- nation that owns this platform (REFERENCES country.alpha2).';
 
 -- ---------------------------------------------------------------------------
 -- PLATFORM_MOUNT (hardpoints / pylons)
@@ -69,8 +93,8 @@ CREATE TABLE IF NOT EXISTS platform_mount (
     id                UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
     mount_designation VARCHAR(100) NOT NULL,
     platform_id       UUID         NOT NULL REFERENCES individual_platform(id) ON DELETE CASCADE,
-    operator_country  VARCHAR(100) NOT NULL,
-    owner_country     VARCHAR(100) NOT NULL,
+    operator_country  CHAR(2)      NOT NULL REFERENCES country(alpha2) ON DELETE RESTRICT,
+    owner_country     CHAR(2)      NOT NULL REFERENCES country(alpha2) ON DELETE RESTRICT,
     created_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
@@ -79,6 +103,10 @@ CREATE INDEX IF NOT EXISTS ix_platform_mount_platform_id
 
 COMMENT ON TABLE platform_mount IS
     'CONFIDENTIAL: Hardpoint / pylon configuration per platform.';
+COMMENT ON COLUMN platform_mount.operator_country IS
+    'ISO 3166-1 alpha-2 FK -- nation operating this mount (REFERENCES country.alpha2).';
+COMMENT ON COLUMN platform_mount.owner_country IS
+    'ISO 3166-1 alpha-2 FK -- nation owning this mount (REFERENCES country.alpha2).';
 
 -- ---------------------------------------------------------------------------
 -- WEAPON_MOUNT
@@ -89,8 +117,8 @@ CREATE TABLE IF NOT EXISTS weapon_mount (
     id                 UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
     weapon_designation VARCHAR(255) NOT NULL,
     mount_id           UUID         NOT NULL REFERENCES platform_mount(id) ON DELETE CASCADE,
-    operator_country   VARCHAR(100) NOT NULL,
-    owner_country      VARCHAR(100) NOT NULL,
+    operator_country   CHAR(2)      NOT NULL REFERENCES country(alpha2) ON DELETE RESTRICT,
+    owner_country      CHAR(2)      NOT NULL REFERENCES country(alpha2) ON DELETE RESTRICT,
     notes              TEXT,
     created_at         TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
@@ -100,6 +128,10 @@ CREATE INDEX IF NOT EXISTS ix_weapon_mount_mount_id
 
 COMMENT ON TABLE weapon_mount IS
     'CONFIDENTIAL: Weapon fitted to a specific platform mount.';
+COMMENT ON COLUMN weapon_mount.operator_country IS
+    'ISO 3166-1 alpha-2 FK -- nation operating this weapon (REFERENCES country.alpha2).';
+COMMENT ON COLUMN weapon_mount.owner_country IS
+    'ISO 3166-1 alpha-2 FK -- nation owning this weapon (REFERENCES country.alpha2).';
 
 -- ---------------------------------------------------------------------------
 -- RWR_SYSTEM

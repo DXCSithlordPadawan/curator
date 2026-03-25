@@ -5,6 +5,17 @@
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------
+-- Countries (UNCLASSIFIED) -- ISO 3166-1 alpha-2 reference data
+-- Only the codes required by the seed platforms are listed here.
+-- Add further rows as needed; the country table is the canonical source.
+-- ---------------------------------------------------------------------------
+INSERT INTO country (alpha2, name)
+VALUES
+    ('GB', 'United Kingdom of Great Britain and Northern Ireland'),
+    ('US', 'United States of America')
+ON CONFLICT (alpha2) DO NOTHING;
+
+-- ---------------------------------------------------------------------------
 -- Platform Classes (UNCLASSIFIED)
 -- ---------------------------------------------------------------------------
 INSERT INTO platform_class (id, class_name, manufacturer_country, description)

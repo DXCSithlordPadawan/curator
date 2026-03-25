@@ -1,6 +1,6 @@
 # Sentinel Curator -- Architecture Document
 
-**Version:** 0.1.1
+**Version:** 0.1.2
 **Date:** 2026-03-25
 **Status:** Draft
 **Classification:** UNCLASSIFIED // DEVELOPMENT
@@ -72,6 +72,9 @@ flowchart TD
 - UUID v4 primary keys throughout.
 - Row-Level Security enabled on all RESTRICTED and CONFIDENTIAL tables.
 - Least-privilege service account (curator_app) granted SELECT only.
+- A central `country` table (ISO 3166-1 alpha-2) is the single source of truth for all
+  `operator_country`, `owner_country`, and `manufacturer_country` values. All such columns
+  are foreign keys to `country.alpha2`; free-text country strings are not permitted.
 
 ### 3.6 RBAC Output Filter
 - Post-execution filter strips columns from result rows that exceed the caller's clearance.
@@ -84,10 +87,14 @@ flowchart TD
 
 ```mermaid
 erDiagram
+    COUNTRY {
+        char(2) alpha2 PK "ISO 3166-1 alpha-2 code"
+        varchar name
+    }
     PLATFORM_CLASS {
         uuid id PK
         varchar class_name
-        varchar manufacturer_country
+        char(2) manufacturer_country FK
         text description
         timestamptz created_at
         timestamptz updated_at
@@ -97,8 +104,8 @@ erDiagram
         varchar hull_serial_id
         varchar name
         uuid class_id FK
-        varchar operator_country
-        varchar owner_country
+        char(2) operator_country FK
+        char(2) owner_country FK
         timestamptz created_at
         timestamptz updated_at
     }
@@ -106,16 +113,16 @@ erDiagram
         uuid id PK
         varchar mount_designation
         uuid platform_id FK
-        varchar operator_country
-        varchar owner_country
+        char(2) operator_country FK
+        char(2) owner_country FK
         timestamptz created_at
     }
     WEAPON_MOUNT {
         uuid id PK
         varchar weapon_designation
         uuid mount_id FK
-        varchar operator_country
-        varchar owner_country
+        char(2) operator_country FK
+        char(2) owner_country FK
         text notes
         timestamptz created_at
     }
@@ -139,6 +146,13 @@ erDiagram
         timestamptz timestamp_utc
     }
 
+    COUNTRY                ||--o{ PLATFORM_CLASS      : "manufactures (manufacturer_country)"
+    COUNTRY                ||--o{ INDIVIDUAL_PLATFORM  : "operates (operator_country)"
+    COUNTRY                ||--o{ INDIVIDUAL_PLATFORM  : "owns (owner_country)"
+    COUNTRY                ||--o{ PLATFORM_MOUNT       : "operates (operator_country)"
+    COUNTRY                ||--o{ PLATFORM_MOUNT       : "owns (owner_country)"
+    COUNTRY                ||--o{ WEAPON_MOUNT         : "operates (operator_country)"
+    COUNTRY                ||--o{ WEAPON_MOUNT         : "owns (owner_country)"
     PLATFORM_CLASS         ||--o{ INDIVIDUAL_PLATFORM : "has instances"
     INDIVIDUAL_PLATFORM    ||--o{ PLATFORM_MOUNT      : "has mounts"
     INDIVIDUAL_PLATFORM    ||--o{ GEOLOCATION_LOG     : "has telemetry"
@@ -151,6 +165,11 @@ erDiagram
 
 | Relationship | Cardinality | Notes |
 |---|---|---|
+| COUNTRY to PLATFORM_CLASS (manufacturer_country) | One to zero-or-many | A country may have manufactured no tracked class |
+| COUNTRY to INDIVIDUAL_PLATFORM (operator_country) | One to zero-or-many | A country may operate no tracked platforms |
+| COUNTRY to INDIVIDUAL_PLATFORM (owner_country) | One to zero-or-many | A country may own no tracked platforms |
+| COUNTRY to PLATFORM_MOUNT (operator_country / owner_country) | One to zero-or-many | Propagated from platform-level nationality |
+| COUNTRY to WEAPON_MOUNT (operator_country / owner_country) | One to zero-or-many | Propagated from platform-level nationality |
 | PLATFORM_CLASS to INDIVIDUAL_PLATFORM | One to zero-or-many | A class may have no physical hulls yet |
 | INDIVIDUAL_PLATFORM to PLATFORM_MOUNT | One to zero-or-many | A platform may have no tracked mounts |
 | PLATFORM_MOUNT to WEAPON_MOUNT | One to zero-or-many | A mount may be empty |
@@ -211,3 +230,4 @@ flowchart LR
 | SQLAlchemy 2.0 | https://docs.sqlalchemy.org/en/20/ |
 | FastAPI | https://fastapi.tiangolo.com/ |
 | Podman rootless | https://github.com/containers/podman/blob/main/docs/tutorials/rootless_tutorial.md |
+| ISO 3166-1 country codes | https://www.iso.org/iso-3166-country-codes.html |
