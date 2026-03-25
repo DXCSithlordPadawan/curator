@@ -23,18 +23,21 @@ VALUES
     ('a1000000-0000-4000-8000-000000000001', 'Nimitz-class',        'US', 'Nuclear-powered supercarrier class, 10 hulls commissioned.'),
     ('a1000000-0000-4000-8000-000000000002', 'Ford-class',          'US', 'Next-generation nuclear carrier class.'),
     ('a1000000-0000-4000-8000-000000000003', 'Type 45 Destroyer',   'GB', 'Royal Navy air-defence destroyer.'),
-    ('a1000000-0000-4000-8000-000000000004', 'Arleigh Burke-class', 'US', 'Multi-mission guided-missile destroyer.')
+    ('a1000000-0000-4000-8000-000000000004', 'Arleigh Burke-class', 'US', 'Multi-mission guided-missile destroyer.'),
+    ('a1000000-0000-4000-8000-000000000005', 'F/A-18E Super Hornet','US', 'Carrier-based multirole combat aircraft.')
 ON CONFLICT (class_name) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
 -- Individual Platforms (RESTRICTED)
 -- ---------------------------------------------------------------------------
-INSERT INTO individual_platform (id, hull_serial_id, name, class_id, operator_country, owner_country)
+INSERT INTO individual_platform (id, hull_serial_id, name, class_id, operator_country, owner_country, parent_platform_id)
 VALUES
-    ('b2000000-0000-4000-8000-000000000001', 'CVN-68', 'USS Nimitz',          'a1000000-0000-4000-8000-000000000001', 'US', 'US'),
-    ('b2000000-0000-4000-8000-000000000002', 'CVN-78', 'USS Gerald R. Ford',  'a1000000-0000-4000-8000-000000000002', 'US', 'US'),
-    ('b2000000-0000-4000-8000-000000000003', 'D32',    'HMS Daring',          'a1000000-0000-4000-8000-000000000003', 'GB', 'GB'),
-    ('b2000000-0000-4000-8000-000000000004', 'DDG-51', 'USS Arleigh Burke',   'a1000000-0000-4000-8000-000000000004', 'US', 'US')
+    ('b2000000-0000-4000-8000-000000000001', 'CVN-68',   'USS Nimitz',          'a1000000-0000-4000-8000-000000000001', 'US', 'US', NULL),
+    ('b2000000-0000-4000-8000-000000000002', 'CVN-78',   'USS Gerald R. Ford',  'a1000000-0000-4000-8000-000000000002', 'US', 'US', NULL),
+    ('b2000000-0000-4000-8000-000000000003', 'D32',      'HMS Daring',          'a1000000-0000-4000-8000-000000000003', 'GB', 'GB', NULL),
+    ('b2000000-0000-4000-8000-000000000004', 'DDG-51',   'USS Arleigh Burke',   'a1000000-0000-4000-8000-000000000004', 'US', 'US', NULL),
+    -- F/A-18E embarked aboard USS Nimitz (illustrates parent_platform_id)
+    ('b2000000-0000-4000-8000-000000000005', 'VFA-14-01','Super Hornet 01 (VFA-14)', 'a1000000-0000-4000-8000-000000000005', 'US', 'US', 'b2000000-0000-4000-8000-000000000001')
 ON CONFLICT (hull_serial_id) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
