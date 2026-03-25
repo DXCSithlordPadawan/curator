@@ -3,6 +3,12 @@ ORM model: INDIVIDUAL_PLATFORM
 
 A specific physical asset (e.g. USS Nimitz, CVN-68).
 Classification tier: RESTRICTED (location/telemetry data)
+
+Relationships:
+  - belongs to one PLATFORM_CLASS
+  - has zero, one, or many PLATFORM_MOUNT (weapon hardpoints)
+  - has zero, one, or many GEOLOCATION_LOG (telemetry)
+  - carries zero, one, or many RWR_SYSTEM (via PLATFORM_RWR association table)
 """
 
 import uuid
@@ -15,9 +21,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sentinel_curator.models.base import Base
 
 if TYPE_CHECKING:
+    from sentinel_curator.models.geolocation_log import GeolocationLog
     from sentinel_curator.models.platform_class import PlatformClass
     from sentinel_curator.models.platform_mount import PlatformMount
-    from sentinel_curator.models.geolocation_log import GeolocationLog
+    from sentinel_curator.models.rwr_system import RwrSystem
 
 
 class IndividualPlatform(Base):
@@ -59,18 +66,32 @@ class IndividualPlatform(Base):
         comment="ISO 3166-1 alpha-2 country code of owning nation",
     )
 
+    # ------------------------------------------------------------------
     # Relationships
+    # ------------------------------------------------------------------
+
     platform_class: Mapped["PlatformClass"] = relationship(
         "PlatformClass",
         back_populates="platforms",
     )
+
     mounts: Mapped[list["PlatformMount"]] = relationship(
         "PlatformMount",
         back_populates="platform",
         cascade="all, delete-orphan",
     )
+
     geolocation_logs: Mapped[list["GeolocationLog"]] = relationship(
         "GeolocationLog",
         back_populates="platform",
         cascade="all, delete-orphan",
+    )
+
+    # Zero, one, or many RWR systems fitted to this platform.
+    # Joined via the PLATFORM_RWR association table.
+    rwr_systems: Mapped[list["RwrSystem"]] = relationship(
+        "RwrSystem",
+        secondary="platform_rwr",
+        back_populates="platforms",
+        lazy="select",
     )

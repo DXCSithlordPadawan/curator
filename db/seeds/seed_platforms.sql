@@ -1,6 +1,6 @@
 -- =============================================================================
--- Sentinel Curator — Representative Seed Data
--- FOR DEVELOPMENT / TESTING ONLY — NOT LIVE OPERATIONAL DATA
+-- Sentinel Curator -- Representative Seed Data
+-- FOR DEVELOPMENT / TESTING ONLY -- NOT LIVE OPERATIONAL DATA
 -- All hull numbers, names, and positions are illustrative / fictitious.
 -- =============================================================================
 
@@ -20,10 +20,10 @@ ON CONFLICT (class_name) DO NOTHING;
 -- ---------------------------------------------------------------------------
 INSERT INTO individual_platform (id, hull_serial_id, name, class_id, operator_country, owner_country)
 VALUES
-    ('b2000000-0000-4000-8000-000000000001', 'CVN-68', 'USS Nimitz',     'a1000000-0000-4000-8000-000000000001', 'US', 'US'),
-    ('b2000000-0000-4000-8000-000000000002', 'CVN-78', 'USS Gerald R. Ford', 'a1000000-0000-4000-8000-000000000002', 'US', 'US'),
-    ('b2000000-0000-4000-8000-000000000003', 'D32',    'HMS Daring',     'a1000000-0000-4000-8000-000000000003', 'GB', 'GB'),
-    ('b2000000-0000-4000-8000-000000000004', 'DDG-51', 'USS Arleigh Burke', 'a1000000-0000-4000-8000-000000000004', 'US', 'US')
+    ('b2000000-0000-4000-8000-000000000001', 'CVN-68', 'USS Nimitz',          'a1000000-0000-4000-8000-000000000001', 'US', 'US'),
+    ('b2000000-0000-4000-8000-000000000002', 'CVN-78', 'USS Gerald R. Ford',  'a1000000-0000-4000-8000-000000000002', 'US', 'US'),
+    ('b2000000-0000-4000-8000-000000000003', 'D32',    'HMS Daring',          'a1000000-0000-4000-8000-000000000003', 'GB', 'GB'),
+    ('b2000000-0000-4000-8000-000000000004', 'DDG-51', 'USS Arleigh Burke',   'a1000000-0000-4000-8000-000000000004', 'US', 'US')
 ON CONFLICT (hull_serial_id) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
@@ -47,42 +47,69 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 -- ---------------------------------------------------------------------------
--- RWR Systems (CONFIDENTIAL — exclusion_emitter_ids are blind spots)
--- NOTE: Values below are FICTITIOUS for testing purposes only.
+-- RWR Systems (CONFIDENTIAL)
+-- NOTE: Emitter IDs and system details are FICTITIOUS for testing only.
 -- ---------------------------------------------------------------------------
 INSERT INTO rwr_system (id, model_name, sensitivity_range, exclusion_emitter_ids, notes)
 VALUES
     (
         'e5000000-0000-4000-8000-000000000001',
         'AN/ALQ-214 IDECM',
-        '0.5–18 GHz',
+        '0.5-18 GHz',
         ARRAY['EMITTER-ALPHA-001', 'EMITTER-BRAVO-042'],
         'FICTITIOUS TEST DATA'
     ),
     (
         'e5000000-0000-4000-8000-000000000002',
         'UAT Mk 9 (Type 45)',
-        '2–18 GHz',
+        '2-18 GHz',
         ARRAY['EMITTER-DELTA-007'],
         'FICTITIOUS TEST DATA'
     )
 ON CONFLICT (model_name) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
--- Geolocation Log (RESTRICTED) — fictitious positions
+-- Platform RWR Associations (CONFIDENTIAL)
+-- Links platforms to the RWR system(s) they carry.
+-- USS Nimitz carries AN/ALQ-214 IDECM.
+-- USS Arleigh Burke carries AN/ALQ-214 IDECM (same model, different platform).
+-- HMS Daring carries UAT Mk 9.
+-- USS Gerald R. Ford has no RWR system recorded (zero case -- valid).
+-- ---------------------------------------------------------------------------
+INSERT INTO platform_rwr (id, platform_id, rwr_system_id)
+VALUES
+    (
+        'g7000000-0000-4000-8000-000000000001',
+        'b2000000-0000-4000-8000-000000000001',   -- USS Nimitz
+        'e5000000-0000-4000-8000-000000000001'    -- AN/ALQ-214 IDECM
+    ),
+    (
+        'g7000000-0000-4000-8000-000000000002',
+        'b2000000-0000-4000-8000-000000000003',   -- HMS Daring
+        'e5000000-0000-4000-8000-000000000002'    -- UAT Mk 9
+    ),
+    (
+        'g7000000-0000-4000-8000-000000000003',
+        'b2000000-0000-4000-8000-000000000004',   -- USS Arleigh Burke
+        'e5000000-0000-4000-8000-000000000001'    -- AN/ALQ-214 IDECM (same model as Nimitz)
+    )
+ON CONFLICT ON CONSTRAINT uq_platform_rwr DO NOTHING;
+
+-- ---------------------------------------------------------------------------
+-- Geolocation Log (RESTRICTED) -- fictitious positions
 -- ---------------------------------------------------------------------------
 INSERT INTO geolocation_log (id, platform_id, coordinates, timestamp_utc)
 VALUES
     (
         'f6000000-0000-4000-8000-000000000001',
         'b2000000-0000-4000-8000-000000000001',
-        ST_GeogFromText('POINT(-118.2437 33.9416)'),  -- Fictitious: approx Pacific coast
+        ST_GeogFromText('POINT(-118.2437 33.9416)'),
         '2026-03-25 08:00:00+00'
     ),
     (
         'f6000000-0000-4000-8000-000000000002',
         'b2000000-0000-4000-8000-000000000003',
-        ST_GeogFromText('POINT(-1.0980 50.7984)'),    -- Fictitious: approx English Channel
+        ST_GeogFromText('POINT(-1.0980 50.7984)'),
         '2026-03-25 08:00:00+00'
     )
 ON CONFLICT DO NOTHING;

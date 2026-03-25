@@ -4,16 +4,23 @@ ORM model: RWR_SYSTEM
 Radar Warning Receiver system model, including its Emitter-ID exclusion list
 (frequencies / IDs the system is physically or logically incapable of detecting).
 
-Classification tier: CONFIDENTIAL (Emitter-ID exclusions are sensitive)
+Classification tier: CONFIDENTIAL (Emitter-ID exclusions are operationally sensitive)
+
+Relationships:
+  - fitted to zero, one, or many INDIVIDUAL_PLATFORM (via PLATFORM_RWR association table)
 """
 
 import uuid
+from typing import TYPE_CHECKING
 
 from sqlalchemy import String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from sentinel_curator.models.base import Base
+
+if TYPE_CHECKING:
+    from sentinel_curator.models.individual_platform import IndividualPlatform
 
 
 class RwrSystem(Base):
@@ -23,6 +30,9 @@ class RwrSystem(Base):
     The `exclusion_emitter_ids` field contains the list of emitter IDs
     (radar frequencies / platform signatures) that this RWR variant
     cannot detect. This is the operationally critical 'blind spot' data.
+
+    Access to `exclusion_emitter_ids` is restricted to CONFIDENTIAL-cleared
+    roles by the RBAC output filter and SQL Guard middleware.
     """
 
     __tablename__ = "rwr_system"
@@ -31,6 +41,7 @@ class RwrSystem(Base):
         UUID(as_uuid=True),
         primary_key=True,
         default=uuid.uuid4,
+        comment="UUID v4 primary key",
     )
     model_name: Mapped[str] = mapped_column(
         String(255),
@@ -41,13 +52,26 @@ class RwrSystem(Base):
     sensitivity_range: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
-        comment="Frequency sensitivity range, e.g. '2–18 GHz'",
+        comment="Frequency sensitivity range, e.g. '2-18 GHz'",
     )
     # Stored as a PostgreSQL text array; each element is an emitter ID string.
-    # Access to this column must be restricted to CONFIDENTIAL-cleared roles.
+    # Access to this column is restricted to CONFIDENTIAL-cleared roles.
     exclusion_emitter_ids: Mapped[list[str] | None] = mapped_column(
         ARRAY(String),
         nullable=True,
         comment="CONFIDENTIAL: Emitter IDs this RWR cannot detect",
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # ------------------------------------------------------------------
+    # Relationships
+    # ------------------------------------------------------------------
+
+    # Platforms that carry this RWR system (zero, one, or many).
+    # Joined via the PLATFORM_RWR association table.
+    platforms: Mapped[list["IndividualPlatform"]] = relationship(
+        "IndividualPlatform",
+        secondary="platform_rwr",
+        back_populates="rwr_systems",
+        lazy="select",
+    )
