@@ -1,6 +1,6 @@
 # Sentinel Curator -- Architecture Document
 
-**Version:** 0.1.3
+**Version:** 0.1.4
 **Date:** 2026-03-25
 **Status:** Draft
 **Classification:** UNCLASSIFIED // DEVELOPMENT
@@ -75,6 +75,9 @@ flowchart TD
 - A central `country` table (ISO 3166-1 alpha-2) is the single source of truth for all
   `operator_country`, `owner_country`, and `manufacturer_country` values. All such columns
   are foreign keys to `country.alpha2`; free-text country strings are not permitted.
+- An `organisation` table represents military organisations (e.g. CENTCOM, 7th Fleet, NATO).
+  Each organisation has an owning country, may be subordinate to a parent organisation
+  (but cannot reference itself), and individual platforms may be optionally assigned to one.
 
 ### 3.6 RBAC Output Filter
 - Post-execution filter strips columns from result rows that exceed the caller's clearance.
@@ -90,6 +93,15 @@ erDiagram
     COUNTRY {
         char(2) alpha2 PK "ISO 3166-1 alpha-2 code"
         varchar name
+    }
+    ORGANISATION {
+        uuid id PK
+        varchar name
+        varchar abbreviation "e.g. CENTCOM, NATO"
+        char(2) owner_country FK "nation that owns/sponsors this organisation"
+        uuid parent_organisation_id FK "optional - parent org; NULL if top-level; cannot equal own id"
+        timestamptz created_at
+        timestamptz updated_at
     }
     PLATFORM_CLASS {
         uuid id PK
@@ -107,6 +119,7 @@ erDiagram
         char(2) operator_country FK
         char(2) owner_country FK
         uuid parent_platform_id FK "optional - hosting platform; NULL if independent; cannot equal own id"
+        uuid organisation_id FK "optional - assigned military organisation"
         timestamptz created_at
         timestamptz updated_at
     }
@@ -147,6 +160,7 @@ erDiagram
         timestamptz timestamp_utc
     }
 
+    COUNTRY                ||--o{ ORGANISATION        : "owns (owner_country)"
     COUNTRY                ||--o{ PLATFORM_CLASS      : "manufactures (manufacturer_country)"
     COUNTRY                ||--o{ INDIVIDUAL_PLATFORM  : "operates (operator_country)"
     COUNTRY                ||--o{ INDIVIDUAL_PLATFORM  : "owns (owner_country)"
@@ -154,6 +168,8 @@ erDiagram
     COUNTRY                ||--o{ PLATFORM_MOUNT       : "owns (owner_country)"
     COUNTRY                ||--o{ WEAPON_MOUNT         : "operates (operator_country)"
     COUNTRY                ||--o{ WEAPON_MOUNT         : "owns (owner_country)"
+    ORGANISATION           |o--o{ ORGANISATION         : "contains (parent_organisation_id)"
+    ORGANISATION           |o--o{ INDIVIDUAL_PLATFORM  : "assigned to (organisation_id)"
     PLATFORM_CLASS         ||--o{ INDIVIDUAL_PLATFORM : "has instances"
     INDIVIDUAL_PLATFORM    |o--o{ INDIVIDUAL_PLATFORM  : "embarks (parent_platform_id)"
     INDIVIDUAL_PLATFORM    ||--o{ PLATFORM_MOUNT      : "has mounts"
@@ -167,11 +183,14 @@ erDiagram
 
 | Relationship | Cardinality | Notes |
 |---|---|---|
+| COUNTRY to ORGANISATION (owner_country) | One to zero-or-many | A country may own or sponsor no tracked organisations |
 | COUNTRY to PLATFORM_CLASS (manufacturer_country) | One to zero-or-many | A country may have manufactured no tracked class |
 | COUNTRY to INDIVIDUAL_PLATFORM (operator_country) | One to zero-or-many | A country may operate no tracked platforms |
 | COUNTRY to INDIVIDUAL_PLATFORM (owner_country) | One to zero-or-many | A country may own no tracked platforms |
 | COUNTRY to PLATFORM_MOUNT (operator_country / owner_country) | One to zero-or-many | Propagated from platform-level nationality |
 | COUNTRY to WEAPON_MOUNT (operator_country / owner_country) | One to zero-or-many | Propagated from platform-level nationality |
+| ORGANISATION to ORGANISATION (parent_organisation_id) | Zero-or-one to zero-or-many | A military organisation may be subordinate to at most one parent organisation (e.g. NAVCENT under CENTCOM); a parent may contain zero or many subordinate organisations; an organisation cannot be its own parent |
+| ORGANISATION to INDIVIDUAL_PLATFORM (organisation_id) | Zero-or-one to zero-or-many | A platform may be assigned to at most one military organisation (e.g. a carrier assigned to 7th Fleet); an organisation may have zero or many assigned platforms |
 | PLATFORM_CLASS to INDIVIDUAL_PLATFORM | One to zero-or-many | A class may have no physical hulls yet |
 | INDIVIDUAL_PLATFORM to INDIVIDUAL_PLATFORM (parent_platform_id) | Zero-or-one to zero-or-many | A platform may be embarked on at most one host platform (e.g. aircraft on a carrier); a host may carry zero or many embarked platforms; a platform cannot be its own parent |
 | INDIVIDUAL_PLATFORM to PLATFORM_MOUNT | One to zero-or-many | A platform may have no tracked mounts |
