@@ -15,6 +15,7 @@ Relationships:
   - may host zero, one, or many embarked INDIVIDUAL_PLATFORM (embarked_platforms)
   - a platform cannot be its own parent (DB enforces chk_no_self_parent)
   - optionally assigned to one ORGANISATION (organisation_id)
+  - optionally linked to one STATUS (status_id)
 """
 
 import uuid
@@ -33,6 +34,7 @@ if TYPE_CHECKING:
     from sentinel_curator.models.platform_class import PlatformClass
     from sentinel_curator.models.platform_mount import PlatformMount
     from sentinel_curator.models.rwr_system import RwrSystem
+    from sentinel_curator.models.status import Status
 
 
 class IndividualPlatform(Base):
@@ -103,6 +105,17 @@ class IndividualPlatform(Base):
             "(e.g. a carrier assigned to 7th Fleet). NULL when not assigned."
         ),
     )
+    status_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("status.id", ondelete="SET NULL"),
+        nullable=True,
+        default=None,
+        comment=(
+            "Optional FK to the STATUS master table indicating the current "
+            "operational status of this platform (e.g. Active, Decommissioned). "
+            "NULL when not set."
+        ),
+    )
 
     # ------------------------------------------------------------------
     # Relationships
@@ -167,6 +180,13 @@ class IndividualPlatform(Base):
     # Military organisation this platform is assigned to (e.g. 7th Fleet).
     organisation: Mapped[Optional["Organisation"]] = relationship(
         "Organisation",
+        back_populates="platforms",
+        lazy="select",
+    )
+
+    # Operational status of this platform (e.g. Active, Decommissioned).
+    status: Mapped[Optional["Status"]] = relationship(
+        "Status",
         back_populates="platforms",
         lazy="select",
     )

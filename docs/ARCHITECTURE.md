@@ -1,6 +1,6 @@
 # Sentinel Curator -- Architecture Document
 
-**Version:** 0.1.4
+**Version:** 0.1.5
 **Date:** 2026-03-25
 **Status:** Draft
 **Classification:** UNCLASSIFIED // DEVELOPMENT
@@ -78,6 +78,9 @@ flowchart TD
 - An `organisation` table represents military organisations (e.g. CENTCOM, 7th Fleet, NATO).
   Each organisation has an owning country, may be subordinate to a parent organisation
   (but cannot reference itself), and individual platforms may be optionally assigned to one.
+- A `status` table is the single source of truth for operational status codes
+  (e.g. Active, Decommissioned, In Maintenance, Reserve). Both `individual_platform` and
+  `weapon_mount` carry an optional `status_id` foreign key to this master table.
 
 ### 3.6 RBAC Output Filter
 - Post-execution filter strips columns from result rows that exceed the caller's clearance.
@@ -103,6 +106,14 @@ erDiagram
         timestamptz created_at
         timestamptz updated_at
     }
+    STATUS {
+        uuid id PK
+        varchar code "unique short code e.g. ACTIVE, DECOMMISSIONED, MAINTENANCE, RESERVE"
+        varchar label "human-readable label"
+        text description
+        timestamptz created_at
+        timestamptz updated_at
+    }
     PLATFORM_CLASS {
         uuid id PK
         varchar class_name
@@ -120,6 +131,7 @@ erDiagram
         char(2) owner_country FK
         uuid parent_platform_id FK "optional - hosting platform; NULL if independent; cannot equal own id"
         uuid organisation_id FK "optional - assigned military organisation"
+        uuid status_id FK "optional - current operational status"
         timestamptz created_at
         timestamptz updated_at
     }
@@ -137,6 +149,7 @@ erDiagram
         uuid mount_id FK
         char(2) operator_country FK
         char(2) owner_country FK
+        uuid status_id FK "optional - current operational status"
         text notes
         timestamptz created_at
     }
@@ -170,6 +183,8 @@ erDiagram
     COUNTRY                ||--o{ WEAPON_MOUNT         : "owns (owner_country)"
     ORGANISATION           |o--o{ ORGANISATION         : "contains (parent_organisation_id)"
     ORGANISATION           |o--o{ INDIVIDUAL_PLATFORM  : "assigned to (organisation_id)"
+    STATUS                 ||--o{ INDIVIDUAL_PLATFORM  : "status of (status_id)"
+    STATUS                 ||--o{ WEAPON_MOUNT         : "status of (status_id)"
     PLATFORM_CLASS         ||--o{ INDIVIDUAL_PLATFORM : "has instances"
     INDIVIDUAL_PLATFORM    |o--o{ INDIVIDUAL_PLATFORM  : "embarks (parent_platform_id)"
     INDIVIDUAL_PLATFORM    ||--o{ PLATFORM_MOUNT      : "has mounts"
@@ -191,6 +206,8 @@ erDiagram
 | COUNTRY to WEAPON_MOUNT (operator_country / owner_country) | One to zero-or-many | Propagated from platform-level nationality |
 | ORGANISATION to ORGANISATION (parent_organisation_id) | Zero-or-one to zero-or-many | A military organisation may be subordinate to at most one parent organisation (e.g. NAVCENT under CENTCOM); a parent may contain zero or many subordinate organisations; an organisation cannot be its own parent |
 | ORGANISATION to INDIVIDUAL_PLATFORM (organisation_id) | Zero-or-one to zero-or-many | A platform may be assigned to at most one military organisation (e.g. a carrier assigned to 7th Fleet); an organisation may have zero or many assigned platforms |
+| STATUS to INDIVIDUAL_PLATFORM (status_id) | One to zero-or-many | A status code may apply to no tracked platforms; a platform has at most one current status (NULL when not set) |
+| STATUS to WEAPON_MOUNT (status_id) | One to zero-or-many | A status code may apply to no tracked weapons; a weapon mount has at most one current status (NULL when not set) |
 | PLATFORM_CLASS to INDIVIDUAL_PLATFORM | One to zero-or-many | A class may have no physical hulls yet |
 | INDIVIDUAL_PLATFORM to INDIVIDUAL_PLATFORM (parent_platform_id) | Zero-or-one to zero-or-many | A platform may be embarked on at most one host platform (e.g. aircraft on a carrier); a host may carry zero or many embarked platforms; a platform cannot be its own parent |
 | INDIVIDUAL_PLATFORM to PLATFORM_MOUNT | One to zero-or-many | A platform may have no tracked mounts |
